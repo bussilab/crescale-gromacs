@@ -278,6 +278,18 @@ void berendsen_pscale(const t_inputrec *ir, const matrix mu,
                       rvec x[], const unsigned short cFREEZE[],
                       t_nrnb *nrnb);
 
+void crescale_pcoupl(FILE *fplog, int64_t step,
+                     const t_inputrec *ir, real dt,
+                     const tensor pres, const matrix box,
+                     const matrix force_vir, const matrix constraint_vir,
+                     matrix mu, double *baros_integral);
+
+void crescale_pscale(const t_inputrec *ir, const matrix mu,
+                     matrix box, matrix box_rel,
+                     int start, int nr_atoms,
+                     rvec x[], rvec v[], const unsigned short cFREEZE[],
+                     t_nrnb *nrnb);
+
 // TODO: This doesn't seem to be used or implemented anywhere
 void correct_ekin(FILE *log, int start, int end, rvec v[],
                   rvec vcm, real mass[], real tmass, tensor ekin);

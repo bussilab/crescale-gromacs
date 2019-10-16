@@ -183,7 +183,8 @@ int pcouple_min_integration_steps(int epc)
         case epcNO:
             n = 0;
             break;
-        case etcBERENDSEN:
+        case epcBERENDSEN:
+        case epcCRESCALE:
         case epcISOTROPIC:
             n = nstmin_berendsen_pcouple;
             break;

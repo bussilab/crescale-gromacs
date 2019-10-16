@@ -94,7 +94,7 @@ extern const char *etcoupl_names[etcNR+1];
  * isotropic is an alias for berendsen
  */
 enum {
-    epcNO, epcBERENDSEN, epcPARRINELLORAHMAN, epcISOTROPIC, epcMTTK, epcNR
+    epcNO, epcBERENDSEN, epcPARRINELLORAHMAN, epcISOTROPIC, epcMTTK, epcCRESCALE, epcNR
 };
 //! String corresponding to pressure coupling algorithm
 extern const char *epcoupl_names[epcNR+1];

@@ -1721,6 +1721,21 @@ void update_pcouple_after_coordinates(FILE             *fplog,
                                  md->cFREEZE, nrnb);
             }
             break;
+        case (epcCRESCALE):
+            if (isPressureCouplingStep(step, inputrec))
+            {
+                real   dtpc = inputrec->nstpcouple*dt;
+                matrix mu;
+                crescale_pcoupl(fplog, step, inputrec, dtpc,
+                                 pressure, state->box,
+                                 forceVirial, constraintVirial,
+                                 mu, &state->baros_integral);
+                crescale_pscale(inputrec, mu, state->box, state->box_rel,
+                                 start, homenr, state->x.rvec_array(),
+                                 state->v.rvec_array(),
+                                 md->cFREEZE, nrnb);
+            }
+            break;
         case (epcPARRINELLORAHMAN):
             if (isPressureCouplingStep(step, inputrec))
             {
