@@ -769,7 +769,7 @@ void crescale_pcoupl(FILE *fplog, int64_t step,
 
     /* C-RESCALE */
     // seed hardcoded to zero now
-    gmx::ThreeFry2x64<64>          rng(0, gmx::RandomDomain::Barostat);
+    gmx::ThreeFry2x64<64>          rng(ir->ld_seed, gmx::RandomDomain::Barostat);
     gmx::NormalDistribution<real>  normalDist;
     rng.restart(step, 0);
     real vol=1.0;
