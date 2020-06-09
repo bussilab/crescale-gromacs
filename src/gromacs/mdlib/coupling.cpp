@@ -911,18 +911,7 @@ void crescale_pscale(const t_inputrec *ir, const matrix mu,
     nthreads = gmx_omp_nthreads_get(emntUpdate);
 #endif
 
-    /* find the inverse matrix */
-    inv_mu[XX][XX]=1.0/mu[XX][XX];
-    inv_mu[YY][YY]=1.0/mu[YY][YY];
-    inv_mu[ZZ][ZZ]=1.0/mu[ZZ][ZZ];
-
-    inv_mu[YY][XX]=-mu[YY][XX]/(mu[XX][XX]*mu[YY][YY]);
-    inv_mu[YY][ZZ]=-mu[YY][ZZ]/(mu[YY][YY]*mu[ZZ][ZZ]);
-    inv_mu[ZZ][XX]=(mu[YY][XX]*mu[YY][ZZ] - mu[YY][YY]*mu[ZZ][XX]) / (mu[XX][XX]*mu[YY][YY]*mu[ZZ][ZZ]);
-
-    inv_mu[XX][YY]=0.0;
-    inv_mu[ZZ][YY]=0.0;
-    inv_mu[ZZ][XX]=0.0;
+    gmx::invertBoxMatrix(mu, inv_mu);
 
     /* Scale the positions and the velocities */
 #pragma omp parallel for num_threads(nthreads) schedule(static)
