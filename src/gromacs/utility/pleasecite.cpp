@@ -294,7 +294,7 @@ void please_cite(FILE* fp, const char* key)
           "J. Chem. Phys.", 141, 2014, "044110" },
         { "Bernetti2020", "M. Bernetti, G. Bussi",
           "Pressure control using stochastic cell rescaling",
-          "arXiv", 1, 2020, "xxxx" },
+          "arXiv", 2006, 2020, "2006.09250" },
     };
 #define NSTR static_cast<int>(asize(citedb))
 
