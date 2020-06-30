@@ -1,6 +1,9 @@
 ### Notes on the GROMACS implementation
 
-Several branches and tags can be found:
+More info can be found in [this repository](https://github.com/bussilab/crescale).
+
+Here we host the GROMACS implementation of the algorithm. This is a dummy branch that just contains this readme file.
+Several branches and tags can be found with the actual code:
 - Tag [v2019.4-crescale](https://github.com/bussilab/crescale-gromacs/releases/tag/v2019.4-crescale)
   is the version used in the manuscript and is based on GROMACS 2019.4.<sup>1</sup>
 - Tag [v2019.6-crescale](https://github.com/bussilab/crescale-gromacs/releases/tag/v2019.6-crescale)
