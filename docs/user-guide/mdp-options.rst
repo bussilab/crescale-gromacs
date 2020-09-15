@@ -1036,6 +1036,13 @@ Pressure coupling
       ensemble, but it is the most efficient way to scale a box at the
       beginning of a run.
 
+   .. mdp-value:: Crescale
+
+      Exponential relaxation pressure coupling with time constant
+      :mdp:`tau-p`, including a stochastic term to enforce correct fluctuations.
+      The box is scaled every :mdp:`nstpcouple` steps. Can be used for both
+      equilibration and production.
+
    .. mdp-value:: Parrinello-Rahman
 
       Extended-ensemble pressure coupling where the box vectors are
