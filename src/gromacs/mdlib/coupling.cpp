@@ -224,7 +224,8 @@ void update_pcouple_after_coordinates(FILE*                fplog,
                 crescale_pcoupl(fplog, step, inputrec, dtpc, pressure, state->box, forceVirial,
                                 constraintVirial, pressureCouplingMu, &state->baros_integral);
                 crescale_pscale(inputrec, pressureCouplingMu, state->box, state->box_rel, start,
-                                homenr, state->x.rvec_array(), state->v.rvec_array(), md->cFREEZE, nrnb, scaleCoordinates);
+                                homenr, state->x.rvec_array(), state->v.rvec_array(), md->cFREEZE,
+                                nrnb, scaleCoordinates);
             }
             break;
         case (epcPARRINELLORAHMAN):
@@ -975,47 +976,54 @@ void crescale_pcoupl(FILE*             fplog,
     gmx::ThreeFry2x64<64>         rng(ir->ld_seed, gmx::RandomDomain::Barostat);
     gmx::NormalDistribution<real> normalDist;
     rng.restart(step, 0);
-    real vol=1.0;
-    for (d = 0; d < DIM; d++) vol*=box[d][d];
+    real vol = 1.0;
+    for (d = 0; d < DIM; d++)
+    {
+        vol *= box[d][d];
+    }
     real gauss;
     real gauss2;
     real kt;
-    kt=ir->opts.ref_t[0]*BOLTZ;
-    if(kt<0.0) kt=0.0;
+    kt = ir->opts.ref_t[0] * BOLTZ;
+    if (kt < 0.0)
+    {
+        kt = 0.0;
+    }
 
     switch (ir->epct)
     {
         case epctISOTROPIC:
-            gauss=normalDist(rng);
+            gauss = normalDist(rng);
             for (d = 0; d < DIM; d++)
             {
-                mu[d][d] = exp(- factor(d, d) * (ir->ref_p[d][d] - scalar_pressure) / DIM +
-                           sqrt(2.0*kt*factor(d, d)*PRESFAC/vol)*gauss/DIM);
-
+                mu[d][d] = exp(-factor(d, d) * (ir->ref_p[d][d] - scalar_pressure) / DIM
+                               + sqrt(2.0 * kt * factor(d, d) * PRESFAC / vol) * gauss / DIM);
             }
             break;
         case epctSEMIISOTROPIC:
-            gauss=normalDist(rng);
-            gauss2=normalDist(rng);
+            gauss  = normalDist(rng);
+            gauss2 = normalDist(rng);
             for (d = 0; d < ZZ; d++)
             {
-                mu[d][d] = exp(- factor(d, d) * (ir->ref_p[d][d] - xy_pressure) /DIM +
-                            sqrt((DIM-1)*2.0*kt*factor(d, d)*PRESFAC/vol/DIM)/(DIM-1)*gauss);
+                mu[d][d] = exp(-factor(d, d) * (ir->ref_p[d][d] - xy_pressure) / DIM
+                               + sqrt((DIM - 1) * 2.0 * kt * factor(d, d) * PRESFAC / vol / DIM)
+                                         / (DIM - 1) * gauss);
             }
-            mu[ZZ][ZZ] = exp(- factor(ZZ, ZZ)*(ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) /DIM +
-                            sqrt(2.0*kt*factor(d, d)*PRESFAC/vol/DIM)*gauss2);
+            mu[ZZ][ZZ] = exp(-factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
+                             + sqrt(2.0 * kt * factor(d, d) * PRESFAC / vol / DIM) * gauss2);
             break;
         case epctSURFACETENSION:
-            gauss=normalDist(rng);
-            gauss2=normalDist(rng);
+            gauss  = normalDist(rng);
+            gauss2 = normalDist(rng);
             for (d = 0; d < ZZ; d++)
             {
                 /* Notice: we here use ref_p[ZZ][ZZ] as isotropic pressure and ir->ref_p[d][d] as surface tension */
-                mu[d][d] = exp(- factor(d, d)*(ir->ref_p[ZZ][ZZ]-ir->ref_p[d][d]/box[ZZ][ZZ] - xy_pressure) /DIM +
-                            sqrt(4.0/3.0*kt*factor(d, d)*PRESFAC/vol)/(DIM-1)*gauss);
+                mu[d][d] = exp(
+                        -factor(d, d) * (ir->ref_p[ZZ][ZZ] - ir->ref_p[d][d] / box[ZZ][ZZ] - xy_pressure) / DIM
+                        + sqrt(4.0 / 3.0 * kt * factor(d, d) * PRESFAC / vol) / (DIM - 1) * gauss);
             }
-            mu[ZZ][ZZ] = exp(- factor(ZZ, ZZ)*(ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) /DIM +
-                            sqrt(2.0/3.0*kt*factor(d, d)*PRESFAC/vol)*gauss2);
+            mu[ZZ][ZZ] = exp(-factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
+                             + sqrt(2.0 / 3.0 * kt * factor(d, d) * PRESFAC / vol) * gauss2);
             break;
         default:
             gmx_fatal(FARGS, "C-rescale pressure coupling type %s not supported yet\n",
@@ -1073,21 +1081,21 @@ void crescale_pcoupl(FILE*             fplog,
 }
 
 void crescale_pscale(const t_inputrec*    ir,
-                      const matrix         mu,
-                      matrix               box,
-                      matrix               box_rel,
-                      int                  start,
-                      int                  nr_atoms,
-                      rvec                 x[],
-                      rvec                 v[],
-                      const unsigned short cFREEZE[],
-                      t_nrnb*              nrnb,
-                      const bool           scaleCoordinates)
+                     const matrix         mu,
+                     matrix               box,
+                     matrix               box_rel,
+                     int                  start,
+                     int                  nr_atoms,
+                     rvec                 x[],
+                     rvec                 v[],
+                     const unsigned short cFREEZE[],
+                     t_nrnb*              nrnb,
+                     const bool           scaleCoordinates)
 {
     ivec* nFreeze = ir->opts.nFreeze;
     int   d;
     int nthreads gmx_unused;
-    matrix inv_mu;
+    matrix       inv_mu;
 
 #ifndef __clang_analyzer__
     nthreads = gmx_omp_nthreads_get(emntUpdate);
@@ -1116,7 +1124,8 @@ void crescale_pscale(const t_inputrec*    ir,
             if (!nFreeze[g][XX])
             {
                 x[n][XX] = mu[XX][XX] * x[n][XX] + mu[YY][XX] * x[n][YY] + mu[ZZ][XX] * x[n][ZZ];
-                v[n][XX] = inv_mu[XX][XX] * v[n][XX] + inv_mu[YY][XX] * v[n][YY] + inv_mu[ZZ][XX] * v[n][ZZ];
+                v[n][XX] = inv_mu[XX][XX] * v[n][XX] + inv_mu[YY][XX] * v[n][YY]
+                           + inv_mu[ZZ][XX] * v[n][ZZ];
             }
             if (!nFreeze[g][YY])
             {
@@ -1887,7 +1896,7 @@ real NPT_energy(const t_inputrec* ir, const t_state* state, const t_extmass* Mas
                     energyNPT += energyPressureMTTK(ir, state, MassQ);
                 }
                 break;
-            case epcBERENDSEN: energyNPT += state->baros_integral; break;
+            case epcBERENDSEN:
             case epcCRESCALE: energyNPT += state->baros_integral; break;
             default:
                 GMX_RELEASE_ASSERT(

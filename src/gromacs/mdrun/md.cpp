@@ -380,9 +380,11 @@ void gmx::LegacySimulator::do_md()
         GMX_RELEASE_ASSERT(
                 ir->etc != etcNOSEHOOVER,
                 "Nose-Hoover temperature coupling is not supported with the GPU update.\n");
-        GMX_RELEASE_ASSERT(ir->epc == epcNO || ir->epc == epcPARRINELLORAHMAN || ir->epc == epcBERENDSEN || ir->epc == epcCRESCALE, 
-                           "Only Parrinello-Rahman, Berendsen, and C-rescale pressure coupling are supported "
-                           "with the GPU update.\n");
+        GMX_RELEASE_ASSERT(
+                ir->epc == epcNO || ir->epc == epcPARRINELLORAHMAN || ir->epc == epcBERENDSEN
+                        || ir->epc == epcCRESCALE,
+                "Only Parrinello-Rahman, Berendsen, and C-rescale pressure coupling are supported "
+                "with the GPU update.\n");
         GMX_RELEASE_ASSERT(!mdatoms->haveVsites,
                            "Virtual sites are not supported with the GPU update.\n");
         GMX_RELEASE_ASSERT(ed == nullptr,
@@ -1458,10 +1460,12 @@ void gmx::LegacySimulator::do_md()
                 (inputrec->epc == epcBERENDSEN && do_per_step(step, inputrec->nstpcouple));
         const bool doCRESCALEPressureCoupling =
                 (inputrec->epc == epcCRESCALE && do_per_step(step, inputrec->nstpcouple));
-        if (useGpuForUpdate && (doBerendsenPressureCoupling || doCRESCALEPressureCoupling || doParrinelloRahman))
+        if (useGpuForUpdate
+            && (doBerendsenPressureCoupling || doCRESCALEPressureCoupling || doParrinelloRahman))
         {
             integrator->scaleCoordinates(pressureCouplingMu);
-            if (doCRESCALEPressureCoupling) {
+            if (doCRESCALEPressureCoupling)
+            {
                 matrix pressureCouplingInvMu;
                 gmx::invertBoxMatrix(pressureCouplingMu, pressureCouplingInvMu);
                 integrator->scaleVelocities(pressureCouplingInvMu);

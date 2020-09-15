@@ -107,8 +107,8 @@ __launch_bounds__(c_maxThreadsPerBlock) __global__
 
 __launch_bounds__(c_maxThreadsPerBlock) __global__
         static void scaleVelocities_kernel(const int numAtoms,
-                                            float3* __restrict__ gm_v,
-                                            const ScalingMatrix scalingMatrix)
+                                           float3* __restrict__ gm_v,
+                                           const ScalingMatrix scalingMatrix)
 {
     int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     if (threadIndex < numAtoms)
