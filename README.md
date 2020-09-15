@@ -10,6 +10,8 @@ Several branches and tags can be found with the actual code:
   integrates GROMACS updates up to 2019.6.
 - Tag [v2020.2-crescale](https://github.com/bussilab/crescale-gromacs/releases/tag/v2020.2-crescale)
   is based on GROMACS 2020.2.
+- Tag [v2020.3-crescale](https://github.com/bussilab/crescale-gromacs/releases/tag/v2020.3-crescale)
+  is based on GROMACS 2020.3.
 - Branches [release-2019](http://github.com/bussilab/crescale-gromacs/tree/release-2019),
   [release-2020](http://github.com/bussilab/crescale-gromacs/tree/release-2020),
   and [master](http://github.com/bussilab/crescale-gromacs/tree/master) are in sync with the official GROMACS repository.
