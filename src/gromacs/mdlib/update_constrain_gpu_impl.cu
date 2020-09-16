@@ -195,8 +195,8 @@ void UpdateConstrainGpu::Impl::scaleVelocities(const matrix scalingMatrix)
     mu.zy = scalingMatrix[ZZ][YY];
 
     const auto kernelArgs = prepareGpuKernelArguments(
-            scaleCoordinates_kernel, coordinateScalingKernelLaunchConfig_, &numAtoms_, &d_v_, &mu);
-    launchGpuKernel(scaleCoordinates_kernel, coordinateScalingKernelLaunchConfig_, deviceStream_,
+            scaleVelocities_kernel, coordinateScalingKernelLaunchConfig_, &numAtoms_, &d_v_, &mu);
+    launchGpuKernel(scaleVelocities_kernel, coordinateScalingKernelLaunchConfig_, deviceStream_,
                     nullptr, "scaleVelocities_kernel", kernelArgs);
     // TODO: Although this only happens on the pressure coupling steps, this synchronization
     //       can affect the perfornamce if nstpcouple is small.
