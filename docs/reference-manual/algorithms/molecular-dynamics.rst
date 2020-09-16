@@ -1271,12 +1271,12 @@ The isotropic version can be easily written in term of the strain
 :math:`\epsilon=\log(V/V_0)` that is evolved according to the following equation
 of motion
 
-.. math:: \mbox{d}\epsilon=-\frac{\beta_T}{\tau_p}(P_0-P)\mbox{d}t + \sqrt{\frac{2k_BT\beta_T}{V\tau_p}}\mbox{d}W
+.. math:: \mbox{d}\epsilon=-\frac{\beta}{\tau_p}(P_0-P)\mbox{d}t + \sqrt{\frac{2k_BT\beta}{V\tau_p}}\mbox{d}W
           :label: eqnstochasticcellrescaling
 
 
-Here, :math:`\beta_T` is the isothermal compressibility of the system.
-It suffices to take a rough estimate because the value of :math:`\beta_T` only influences
+Here, :math:`\beta` is the isothermal compressibility of the system.
+It suffices to take a rough estimate because the value of :math:`\beta` only influences
 the non-critical time constant of the pressure relaxation without affecting
 the volume distribution itself. For water at 1 atm and 300 K
 :math:`\beta = 4.6 \times 10^{-10}`
@@ -1293,10 +1293,10 @@ where :math:`A` and :math:`L` are the area of the simulation box in the
 :math:`xy` plane and its height, respectively, the following equations
 can be obtained:
 
-.. math:: \mbox{d}\epsilon_{xy}=-\frac{2\beta_T}{3\tau_p}(P_0-\frac{\gamma}{L}-\frac{P_{xx}+P_{yy}}{2})\mbox{d}t+\sqrt{\frac{4k_BT\beta_T}{3V\tau_p}}\mbox{d}W_{xy}
+.. math:: \mbox{d}\epsilon_{xy}=-\frac{2\beta}{3\tau_p}(P_0-\frac{\gamma}{L}-\frac{P_{xx}+P_{yy}}{2})\mbox{d}t+\sqrt{\frac{4k_BT\beta}{3V\tau_p}}\mbox{d}W_{xy}
           :label: eqnstochasticcellrescalingxy
 
-.. math:: \mbox{d}\epsilon_z=-\frac{\beta_T}{3\tau_p}(P_0-P_{zz})\mbox{d}t + \sqrt{\frac{2k_BT\beta_T}{3V\tau_p}}\mbox{d}W_z
+.. math:: \mbox{d}\epsilon_z=-\frac{\beta}{3\tau_p}(P_0-P_{zz})\mbox{d}t + \sqrt{\frac{2k_BT\beta}{3V\tau_p}}\mbox{d}W_z
           :label: eqnstochasticcellrescalingz
 
 Here :math:`\gamma` is the external surface tension and :math:`P_{xx}`,
