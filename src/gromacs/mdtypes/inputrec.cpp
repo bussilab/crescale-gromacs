@@ -183,7 +183,7 @@ int pcouple_min_integration_steps(int epc)
     switch (epc)
     {
         case epcNO: n = 0; break;
-        case etcBERENDSEN:
+        case epcBERENDSEN:
         case epcISOTROPIC: n = nstmin_berendsen_pcouple; break;
         case epcPARRINELLORAHMAN:
         case epcMTTK: n = nstmin_harmonic; break;
