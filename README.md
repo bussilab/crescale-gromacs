@@ -1,4 +1,14 @@
-### Notes on the GROMACS implementation
+### Notes on the GROMACS implementation of stochastic cell rescaling
+
+The simplest way to include the implementation in your GROMACS copy is to run the following script in the gromacs root *before* compiling gromacs:
+```
+bash <(curl -s https://raw.githubusercontent.com/bussilab/crescale-gromacs/patch-v2020.3)
+```
+Please replace `v2020.3` with the exact version you are using. If you see an error such as
+```
+line 1: 400:: command not found
+```
+it means that this specific version is not supported. Please check below which gromacs versions are supported.
 
 More info can be found in [this repository](https://github.com/bussilab/crescale).
 
