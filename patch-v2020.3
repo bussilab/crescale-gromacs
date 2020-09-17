@@ -1,0 +1,531 @@
+patch -p 1 << EOF
+diff --git a/src/gromacs/mdlib/coupling.cpp b/src/gromacs/mdlib/coupling.cpp
+index 909564f2af..9b2348fc15 100644
+--- a/src/gromacs/mdlib/coupling.cpp
++++ b/src/gromacs/mdlib/coupling.cpp
+@@ -700,6 +700,216 @@ void berendsen_pcoupl(FILE*             fplog,
+     }
+ }
+ 
++void crescale_pcoupl(FILE*             fplog,
++                     int64_t           step,
++                     const t_inputrec* ir,
++                     real              dt,
++                     const tensor      pres,
++                     const matrix      box,
++                     const matrix      force_vir,
++                     const matrix      constraint_vir,
++                     matrix            mu,
++                     double*           baros_integral)
++{
++    int  d;
++    real scalar_pressure, xy_pressure;
++    char buf[STRLEN];
++
++    /*
++     *  Calculate the scaling matrix mu
++     */
++    scalar_pressure = 0;
++    xy_pressure     = 0;
++    for (d = 0; d < DIM; d++)
++    {
++        scalar_pressure += pres[d][d] / DIM;
++        if (d != ZZ)
++        {
++            xy_pressure += pres[d][d] / (DIM - 1);
++        }
++    }
++    /* Pressure is now in bar, everywhere. */
++#define factor(d, m) (ir->compress[d][m] * dt / ir->tau_p)
++
++    /* mu has been changed from pow(1+...,1/3) to 1+.../3, since this is
++     * necessary for triclinic scaling
++     */
++    clear_mat(mu);
++
++    gmx::ThreeFry2x64<64>         rng(ir->ld_seed, gmx::RandomDomain::Barostat);
++    gmx::NormalDistribution<real> normalDist;
++    rng.restart(step, 0);
++    real vol=1.0;
++    for (d = 0; d < DIM; d++) vol*=box[d][d];
++    real gauss;
++    real gauss2;
++    real kt;
++    kt=ir->opts.ref_t[0]*BOLTZ;
++    if(kt<0.0) kt=0.0;
++
++    switch (ir->epct)
++    {
++        case epctISOTROPIC:
++            gauss=normalDist(rng);
++            for (d = 0; d < DIM; d++)
++            {
++                mu[d][d] = exp(- factor(d, d) * (ir->ref_p[d][d] - scalar_pressure) / DIM +
++                           sqrt(2.0*kt*factor(d, d)*PRESFAC/vol)*gauss/DIM);
++
++            }
++            break;
++        case epctSEMIISOTROPIC:
++            gauss=normalDist(rng);
++            gauss2=normalDist(rng);
++            for (d = 0; d < ZZ; d++)
++            {
++                mu[d][d] = exp(- factor(d, d) * (ir->ref_p[d][d] - xy_pressure) /DIM +
++                            sqrt((DIM-1)*2.0*kt*factor(d, d)*PRESFAC/vol/DIM)/(DIM-1)*gauss);
++            }
++            mu[ZZ][ZZ] = exp(- factor(ZZ, ZZ)*(ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) /DIM +
++                            sqrt(2.0*kt*factor(d, d)*PRESFAC/vol/DIM)*gauss2);
++            break;
++        case epctSURFACETENSION:
++            gauss=normalDist(rng);
++            gauss2=normalDist(rng);
++            for (d = 0; d < ZZ; d++)
++            {
++                /* Notice: we here use ref_p[ZZ][ZZ] as isotropic pressure and ir->ref_p[d][d] as surface tension */
++                mu[d][d] = exp(- factor(d, d)*(ir->ref_p[ZZ][ZZ]-ir->ref_p[d][d]/box[ZZ][ZZ] - xy_pressure) /DIM +
++                            sqrt(4.0/3.0*kt*factor(d, d)*PRESFAC/vol)/(DIM-1)*gauss);
++            }
++            mu[ZZ][ZZ] = exp(- factor(ZZ, ZZ)*(ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) /DIM +
++                            sqrt(2.0/3.0*kt*factor(d, d)*PRESFAC/vol)*gauss2);
++            break;
++        default:
++            gmx_fatal(FARGS, "C-rescale pressure coupling type %s not supported yet\n",
++                      EPCOUPLTYPETYPE(ir->epct));
++    }
++    /* To fullfill the orientation restrictions on triclinic boxes
++     * we will set mu_yx, mu_zx and mu_zy to 0 and correct
++     * the other elements of mu to first order.
++     */
++    mu[YY][XX] += mu[XX][YY];
++    mu[ZZ][XX] += mu[XX][ZZ];
++    mu[ZZ][YY] += mu[YY][ZZ];
++    mu[XX][YY] = 0;
++    mu[XX][ZZ] = 0;
++    mu[YY][ZZ] = 0;
++
++    /* Keep track of the work the barostat applies on the system.
++     * Without constraints force_vir tells us how Epot changes when scaling.
++     * With constraints constraint_vir gives us the constraint contribution
++     * to both Epot and Ekin. Although we are not scaling velocities, scaling
++     * the coordinates leads to scaling of distances involved in constraints.
++     * This in turn changes the angular momentum (even if the constrained
++     * distances are corrected at the next step). The kinetic component
++     * of the constraint virial captures the angular momentum change.
++     */
++    for (int d = 0; d < DIM; d++)
++    {
++        for (int n = 0; n <= d; n++)
++        {
++            *baros_integral -=
++                    2 * (mu[d][n] - (n == d ? 1 : 0)) * (force_vir[d][n] + constraint_vir[d][n]);
++        }
++    }
++
++    if (debug)
++    {
++        pr_rvecs(debug, 0, "PC: pres ", pres, 3);
++        pr_rvecs(debug, 0, "PC: mu   ", mu, 3);
++    }
++
++    if (mu[XX][XX] < 0.99 || mu[XX][XX] > 1.01 || mu[YY][YY] < 0.99 || mu[YY][YY] > 1.01
++        || mu[ZZ][ZZ] < 0.99 || mu[ZZ][ZZ] > 1.01)
++    {
++        char buf2[22];
++        sprintf(buf,
++                "\nStep %s  Warning: pressure scaling more than 1%%, "
++                "mu: %g %g %g\n",
++                gmx_step_str(step, buf2), mu[XX][XX], mu[YY][YY], mu[ZZ][ZZ]);
++        if (fplog)
++        {
++            fprintf(fplog, "%s", buf);
++        }
++        fprintf(stderr, "%s", buf);
++    }
++}
++
++void crescale_pscale(const t_inputrec*    ir,
++                      const matrix         mu,
++                      matrix               box,
++                      matrix               box_rel,
++                      int                  start,
++                      int                  nr_atoms,
++                      rvec                 x[],
++                      rvec                 v[],
++                      const unsigned short cFREEZE[],
++                      t_nrnb*              nrnb,
++                      const bool           scaleCoordinates)
++{
++    ivec* nFreeze = ir->opts.nFreeze;
++    int   d;
++    int nthreads gmx_unused;
++    matrix inv_mu;
++
++#ifndef __clang_analyzer__
++    nthreads = gmx_omp_nthreads_get(emntUpdate);
++#endif
++
++    gmx::invertBoxMatrix(mu, inv_mu);
++
++    /* Scale the positions and the velocities */
++    if (scaleCoordinates)
++    {
++#pragma omp parallel for num_threads(nthreads) schedule(static)
++        for (int n = start; n < start + nr_atoms; n++)
++        {
++            // Trivial OpenMP region that does not throw
++            int g;
++
++            if (cFREEZE == nullptr)
++            {
++                g = 0;
++            }
++            else
++            {
++                g = cFREEZE[n];
++            }
++
++            if (!nFreeze[g][XX])
++            {
++                x[n][XX] = mu[XX][XX] * x[n][XX] + mu[YY][XX] * x[n][YY] + mu[ZZ][XX] * x[n][ZZ];
++                v[n][XX] = inv_mu[XX][XX] * v[n][XX] + inv_mu[YY][XX] * v[n][YY] + inv_mu[ZZ][XX] * v[n][ZZ];
++            }
++            if (!nFreeze[g][YY])
++            {
++                x[n][YY] = mu[YY][YY] * x[n][YY] + mu[ZZ][YY] * x[n][ZZ];
++                v[n][YY] = inv_mu[YY][YY] * v[n][YY] + inv_mu[ZZ][YY] * v[n][ZZ];
++            }
++            if (!nFreeze[g][ZZ])
++            {
++                x[n][ZZ] = mu[ZZ][ZZ] * x[n][ZZ];
++                v[n][ZZ] = inv_mu[ZZ][ZZ] * v[n][ZZ];
++            }
++        }
++    }
++    /* compute final boxlengths */
++    for (d = 0; d < DIM; d++)
++    {
++        box[d][XX] = mu[XX][XX] * box[d][XX] + mu[YY][XX] * box[d][YY] + mu[ZZ][XX] * box[d][ZZ];
++        box[d][YY] = mu[YY][YY] * box[d][YY] + mu[ZZ][YY] * box[d][ZZ];
++        box[d][ZZ] = mu[ZZ][ZZ] * box[d][ZZ];
++    }
++
++    preserve_box_shape(ir, box_rel, box);
++
++    /* (un)shifting should NOT be done after this,
++     * since the box vectors might have changed
++     */
++    inc_nrnb(nrnb, eNR_PCOUPL, nr_atoms);
++}
++
+ void berendsen_pscale(const t_inputrec*    ir,
+                       const matrix         mu,
+                       matrix               box,
+@@ -1442,6 +1652,7 @@ real NPT_energy(const t_inputrec* ir, const t_state* state, const t_extmass* Mas
+                 }
+                 break;
+             case epcBERENDSEN: energyNPT += state->baros_integral; break;
++            case epcCRESCALE: energyNPT += state->baros_integral; break;
+             default:
+                 GMX_RELEASE_ASSERT(
+                         false,
+@@ -1757,6 +1968,10 @@ void pleaseCiteCouplingAlgorithms(FILE* fplog, const t_inputrec& ir)
+         {
+             please_cite(fplog, "Bussi2007a");
+         }
++        if (ir.epc == epcCRESCALE)
++        {
++            please_cite(fplog, "Bernetti2020");
++        }
+         // TODO this is actually an integrator, not a coupling algorithm
+         if (ir.eI == eiSD1)
+         {
+diff --git a/src/gromacs/mdlib/update.cpp b/src/gromacs/mdlib/update.cpp
+index 2e6dd74950..f8e2ef6033 100644
+--- a/src/gromacs/mdlib/update.cpp
++++ b/src/gromacs/mdlib/update.cpp
+@@ -1691,6 +1691,18 @@ void update_pcouple_after_coordinates(FILE*             fplog,
+                                  homenr, state->x.rvec_array(), md->cFREEZE, nrnb, scaleCoordinates);
+             }
+             break;
++        case (epcCRESCALE):
++            if (do_per_step(step, inputrec->nstpcouple))
++            {
++                real dtpc = inputrec->nstpcouple * dt;
++                crescale_pcoupl(fplog, step, inputrec, dtpc, pressure, state->box, forceVirial,
++                                constraintVirial, pressureCouplingMu, &state->baros_integral);
++                crescale_pscale(inputrec, pressureCouplingMu, state->box, state->box_rel, start,
++                                homenr, state->x.rvec_array(), state->v.rvec_array(),
++                                md->cFREEZE, nrnb, scaleCoordinates);
++            }
++            break;
++
+         case (epcPARRINELLORAHMAN):
+             if (do_per_step(step + inputrec->nstpcouple - 1, inputrec->nstpcouple))
+             {
+diff --git a/src/gromacs/mdlib/update.h b/src/gromacs/mdlib/update.h
+index 472d5e6bbf..3c83709b89 100644
+--- a/src/gromacs/mdlib/update.h
++++ b/src/gromacs/mdlib/update.h
+@@ -332,6 +332,29 @@ void berendsen_pscale(const t_inputrec*    ir,
+                       t_nrnb*              nrnb,
+                       bool                 scaleCoordinates);
+ 
++void crescale_pcoupl(FILE*             fplog,
++                     int64_t           step,
++                     const t_inputrec* ir,
++                     real              dt,
++                     const tensor      pres,
++                     const matrix      box,
++                     const matrix      force_vir,
++                     const matrix      constraint_vir,
++                     matrix            mu,
++                     double*           baros_integral);
++
++void crescale_pscale(const t_inputrec*    ir,
++                     const matrix         mu,
++                     matrix               box,
++                     matrix               box_rel,
++                     int                  start,
++                     int                  nr_atoms,
++                     rvec                 x[],
++                     rvec                 v[],
++                     const unsigned short cFREEZE[],
++                     t_nrnb*              nrnb,
++                     bool                 scaleCoordinates);
++
+ void pleaseCiteCouplingAlgorithms(FILE* fplog, const t_inputrec& ir);
+ 
+ /*! \brief Computes the atom range for a thread to operate on, ensuring SIMD aligned ranges
+diff --git a/src/gromacs/mdlib/update_constrain_cuda.h b/src/gromacs/mdlib/update_constrain_cuda.h
+index 5adca1c433..2fd393a966 100644
+--- a/src/gromacs/mdlib/update_constrain_cuda.h
++++ b/src/gromacs/mdlib/update_constrain_cuda.h
+@@ -125,6 +125,14 @@ public:
+      */
+     void scaleCoordinates(const matrix scalingMatrix);
+ 
++    /*! \brief Scale velocities on the GPU for the pressure coupling.
++     *
++     * After pressure coupling step, the box size may change. In the C-Rescale algorithm, velocities should be scaled.
++     *
++     * \param[in] scalingMatrix Velocities scaling matrix.
++     */
++    void scaleVelocities(const matrix scalingMatrix);
++
+     /*! \brief Set the pointers and update data-structures (e.g. after NB search step).
+      *
+      * \param[in,out]  d_x                 Device buffer with coordinates.
+diff --git a/src/gromacs/mdlib/update_constrain_cuda_impl.cpp b/src/gromacs/mdlib/update_constrain_cuda_impl.cpp
+index adbf2f5ba5..bc5d0f1cfb 100644
+--- a/src/gromacs/mdlib/update_constrain_cuda_impl.cpp
++++ b/src/gromacs/mdlib/update_constrain_cuda_impl.cpp
+@@ -88,6 +88,12 @@ void UpdateConstrainCuda::scaleCoordinates(const matrix /* scalingMatrix */)
+                "A CPU stub for UpdateConstrain was called instead of the correct implementation.");
+ }
+ 
++void UpdateConstrainCuda::scaleVelocities(const matrix /* scalingMatrix */)
++{
++    GMX_ASSERT(false,
++               "A CPU stub for UpdateConstrain was called instead of the correct implementation.");
++}
++
+ void UpdateConstrainCuda::set(DeviceBuffer<float> /* d_x */,
+                               DeviceBuffer<float> /* d_v */,
+                               const DeviceBuffer<float> /* d_f */,
+diff --git a/src/gromacs/mdlib/update_constrain_cuda_impl.cu b/src/gromacs/mdlib/update_constrain_cuda_impl.cu
+index c11a74ad81..27fc2ef16d 100644
+--- a/src/gromacs/mdlib/update_constrain_cuda_impl.cu
++++ b/src/gromacs/mdlib/update_constrain_cuda_impl.cu
+@@ -102,6 +102,24 @@ __launch_bounds__(c_maxThreadsPerBlock) __global__
+     }
+ }
+ 
++__launch_bounds__(c_maxThreadsPerBlock) __global__
++        static void scaleVelocities_kernel(const int numAtoms,
++                                            float3* __restrict__ gm_v,
++                                            const ScalingMatrix scalingMatrix)
++{
++    int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
++    if (threadIndex < numAtoms)
++    {
++        float3 v = gm_v[threadIndex];
++
++        v.x = scalingMatrix.xx * v.x + scalingMatrix.yx * v.y + scalingMatrix.zx * v.z;
++        v.y = scalingMatrix.yy * v.y + scalingMatrix.zy * v.z;
++        v.z = scalingMatrix.zz * v.z;
++
++        gm_v[threadIndex] = v;
++    }
++}
++
+ void UpdateConstrainCuda::Impl::integrate(GpuEventSynchronizer*             fReadyOnDevice,
+                                           const real                        dt,
+                                           const bool                        updateVelocities,
+@@ -164,6 +182,25 @@ void UpdateConstrainCuda::Impl::scaleCoordinates(const matrix scalingMatrix)
+     gpuStreamSynchronize(commandStream_);
+ }
+ 
++void UpdateConstrainCuda::Impl::scaleVelocities(const matrix scalingMatrix)
++{
++    ScalingMatrix mu;
++    mu.xx = scalingMatrix[XX][XX];
++    mu.yy = scalingMatrix[YY][YY];
++    mu.zz = scalingMatrix[ZZ][ZZ];
++    mu.yx = scalingMatrix[YY][XX];
++    mu.zx = scalingMatrix[ZZ][XX];
++    mu.zy = scalingMatrix[ZZ][YY];
++
++    const auto kernelArgs = prepareGpuKernelArguments(
++            scaleVelocities_kernel, coordinateScalingKernelLaunchConfig_, &numAtoms_, &d_v_, &mu);
++    launchGpuKernel(scaleVelocities_kernel, coordinateScalingKernelLaunchConfig_, nullptr,
++                    "scaleVelocities_kernel", kernelArgs);
++    // TODO: Although this only happens on the pressure coupling steps, this synchronization
++    //       can affect the perfornamce if nstpcouple is small.
++    gpuStreamSynchronize(commandStream_);
++}
++
+ UpdateConstrainCuda::Impl::Impl(const t_inputrec&     ir,
+                                 const gmx_mtop_t&     mtop,
+                                 const void*           commandStream,
+@@ -262,6 +299,11 @@ void UpdateConstrainCuda::scaleCoordinates(const matrix scalingMatrix)
+     impl_->scaleCoordinates(scalingMatrix);
+ }
+ 
++void UpdateConstrainCuda::scaleVelocities(const matrix scalingMatrix)
++{
++    impl_->scaleVelocities(scalingMatrix);
++}
++
+ void UpdateConstrainCuda::set(DeviceBuffer<float>       d_x,
+                               DeviceBuffer<float>       d_v,
+                               const DeviceBuffer<float> d_f,
+diff --git a/src/gromacs/mdlib/update_constrain_cuda_impl.h b/src/gromacs/mdlib/update_constrain_cuda_impl.h
+index 68fed99c6b..96ca0211f2 100644
+--- a/src/gromacs/mdlib/update_constrain_cuda_impl.h
++++ b/src/gromacs/mdlib/update_constrain_cuda_impl.h
+@@ -124,6 +124,14 @@ public:
+      */
+     void scaleCoordinates(const matrix scalingMatrix);
+ 
++    /*! \brief Scale velocities on the GPU for the pressure coupling.
++     *
++     * After pressure coupling step, the box size may change. In the C-Rescale algorithm, velocities should be scaled.
++     *
++     * \param[in] scalingMatrix Velocities scaling matrix.
++     */
++    void scaleVelocities(const matrix scalingMatrix);
++
+     /*! \brief Set the pointers and update data-structures (e.g. after NB search step).
+      *
+      * \param[in,out]  d_x            Device buffer with coordinates.
+diff --git a/src/gromacs/mdrun/md.cpp b/src/gromacs/mdrun/md.cpp
+index efd18b09e3..5ebf751812 100644
+--- a/src/gromacs/mdrun/md.cpp
++++ b/src/gromacs/mdrun/md.cpp
+@@ -70,6 +70,7 @@
+ #include "gromacs/imd/imd.h"
+ #include "gromacs/listed_forces/manage_threading.h"
+ #include "gromacs/math/functions.h"
++#include "gromacs/math/invertmatrix.h"
+ #include "gromacs/math/utilities.h"
+ #include "gromacs/math/vec.h"
+ #include "gromacs/math/vectypes.h"
+@@ -372,8 +373,8 @@ void gmx::LegacySimulator::do_md()
+         GMX_RELEASE_ASSERT(
+                 ir->etc != etcNOSEHOOVER,
+                 "Nose-Hoover temperature coupling is not supported with the GPU update.\n");
+-        GMX_RELEASE_ASSERT(ir->epc == epcNO || ir->epc == epcPARRINELLORAHMAN || ir->epc == epcBERENDSEN,
+-                           "Only Parrinello-Rahman and Berendsen pressure coupling are supported "
++        GMX_RELEASE_ASSERT(ir->epc == epcNO || ir->epc == epcPARRINELLORAHMAN || ir->epc == epcBERENDSEN || ir->epc == epcCRESCALE, 
++                           "Only Parrinello-Rahman, Berendsen, and C-rescale pressure coupling are supported "
+                            "with the GPU update.\n");
+         GMX_RELEASE_ASSERT(!mdatoms->haveVsites,
+                            "Virtual sites are not supported with the GPU update.\n");
+@@ -1473,9 +1474,16 @@ void gmx::LegacySimulator::do_md()
+ 
+         const bool doBerendsenPressureCoupling =
+                 (inputrec->epc == epcBERENDSEN && do_per_step(step, inputrec->nstpcouple));
+-        if (useGpuForUpdate && (doBerendsenPressureCoupling || doParrinelloRahman))
++        const bool doCRESCALEPressureCoupling =
++                (inputrec->epc == epcCRESCALE && do_per_step(step, inputrec->nstpcouple));
++        if (useGpuForUpdate && (doBerendsenPressureCoupling || doCRESCALEPressureCoupling || doParrinelloRahman))
+         {
+             integrator->scaleCoordinates(pressureCouplingMu);
++            if (doCRESCALEPressureCoupling) {
++                matrix pressureCouplingInvMu;
++                gmx::invertBoxMatrix(pressureCouplingMu, pressureCouplingInvMu);
++                integrator->scaleVelocities(pressureCouplingInvMu);
++            }
+             t_pbc pbc;
+             set_pbc(&pbc, epbcXYZ, state->box);
+             integrator->setPbc(&pbc);
+diff --git a/src/gromacs/mdtypes/inputrec.cpp b/src/gromacs/mdtypes/inputrec.cpp
+index 04d60adb04..ab5d3d5e7a 100644
+--- a/src/gromacs/mdtypes/inputrec.cpp
++++ b/src/gromacs/mdtypes/inputrec.cpp
+@@ -174,7 +174,8 @@ int pcouple_min_integration_steps(int epc)
+     switch (epc)
+     {
+         case epcNO: n = 0; break;
+-        case etcBERENDSEN:
++        case epcBERENDSEN:
++        case epcCRESCALE:
+         case epcISOTROPIC: n = nstmin_berendsen_pcouple; break;
+         case epcPARRINELLORAHMAN:
+         case epcMTTK: n = nstmin_harmonic; break;
+diff --git a/src/gromacs/mdtypes/md_enums.cpp b/src/gromacs/mdtypes/md_enums.cpp
+index 98d46895b9..10434dcf9e 100644
+--- a/src/gromacs/mdtypes/md_enums.cpp
++++ b/src/gromacs/mdtypes/md_enums.cpp
+@@ -99,7 +99,7 @@ const char* etcoupl_names[etcNR + 1] = {
+ }; /* yes is alias for berendsen */
+ 
+ const char* epcoupl_names[epcNR + 1] = {
+-    "No", "Berendsen", "Parrinello-Rahman", "Isotropic", "MTTK", nullptr
++    "No", "Berendsen", "Parrinello-Rahman", "Isotropic", "MTTK", "C-rescale", nullptr
+ }; /* isotropic is alias for berendsen */
+ 
+ const char* epcoupltype_names[epctNR + 1] = { "Isotropic", "Semiisotropic", "Anisotropic",
+diff --git a/src/gromacs/mdtypes/md_enums.h b/src/gromacs/mdtypes/md_enums.h
+index 307f69e56a..e8c4ea045d 100644
+--- a/src/gromacs/mdtypes/md_enums.h
++++ b/src/gromacs/mdtypes/md_enums.h
+@@ -114,6 +114,7 @@ enum
+     epcPARRINELLORAHMAN,
+     epcISOTROPIC,
+     epcMTTK,
++    epcCRESCALE,
+     epcNR
+ };
+ //! String corresponding to pressure coupling algorithm
+diff --git a/src/gromacs/taskassignment/decidegpuusage.cpp b/src/gromacs/taskassignment/decidegpuusage.cpp
+index e9f98298b8..4f8a04d1e9 100644
+--- a/src/gromacs/taskassignment/decidegpuusage.cpp
++++ b/src/gromacs/taskassignment/decidegpuusage.cpp
+@@ -616,9 +616,9 @@ bool decideWhetherToUseGpuForUpdate(const bool                     isDomainDecom
+     {
+         errorMessage += "Nose-Hoover temperature coupling is not supported.\n";
+     }
+-    if (!(inputrec.epc == epcNO || inputrec.epc == epcPARRINELLORAHMAN || inputrec.epc == epcBERENDSEN))
++    if (!(inputrec.epc == epcNO || inputrec.epc == epcPARRINELLORAHMAN || inputrec.epc == epcBERENDSEN || inputrec.epc == epcCRESCALE))
+     {
+-        errorMessage += "Only Parrinello-Rahman and Berendsen pressure coupling are supported.\n";
++        errorMessage += "Only Parrinello-Rahman, Berendsen, and C-rescale pressure coupling are supported.\n";
+     }
+     if (EEL_PME_EWALD(inputrec.coulombtype) && inputrec.epsilon_surface != 0)
+     {
+diff --git a/src/gromacs/utility/pleasecite.cpp b/src/gromacs/utility/pleasecite.cpp
+index 4c0b71b390..2c6f41547d 100644
+--- a/src/gromacs/utility/pleasecite.cpp
++++ b/src/gromacs/utility/pleasecite.cpp
+@@ -292,6 +292,9 @@ void please_cite(FILE* fp, const char* key)
+         { "Lindahl2014", "V. Lindahl, J. Lidmar, B. Hess",
+           "Accelerated weight histogram method for exploring free energy landscapes",
+           "J. Chem. Phys.", 141, 2014, "044110" },
++        { "Bernetti2020", "M. Bernetti, G. Bussi",
++          "Pressure control using stochastic cell rescaling",
++          "arXiv", 2006, 2020, "2006.09250" },
+     };
+ #define NSTR static_cast<int>(asize(citedb))
+ 
+EOF
