@@ -1,8 +1,4 @@
-list="
-v2019.6
-v2020.2
-v2020.3
-"
+list="$( git tag | grep "\-crescale" | sed "s/-.*//")"
 
 for tag in $list
 do
