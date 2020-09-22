@@ -989,8 +989,9 @@ void crescale_pcoupl(FILE*             fplog,
             for (int d = 0; d < DIM; d++)
             {
                 const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
-                mu[d][d] = exp(-compressibilityFactor * (ir->ref_p[d][d] - scalar_pressure) / DIM
-                               + sqrt(2.0 * kt * compressibilityFactor * PRESFAC / vol) * gauss / DIM);
+                mu[d][d] = std::exp(-compressibilityFactor * (ir->ref_p[d][d] - scalar_pressure) / DIM
+                                    + std::sqrt(2.0 * kt * compressibilityFactor * PRESFAC / vol)
+                                              * gauss / DIM);
             }
             break;
         case epctSEMIISOTROPIC:
@@ -999,14 +1000,16 @@ void crescale_pcoupl(FILE*             fplog,
             for (int d = 0; d < ZZ; d++)
             {
                 const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
-                mu[d][d] = exp(-compressibilityFactor * (ir->ref_p[d][d] - xy_pressure) / DIM
-                               + sqrt((DIM - 1) * 2.0 * kt * compressibilityFactor * PRESFAC / vol / DIM)
-                                         / (DIM - 1) * gauss);
+                mu[d][d]                         = std::exp(
+                        -compressibilityFactor * (ir->ref_p[d][d] - xy_pressure) / DIM
+                        + std::sqrt((DIM - 1) * 2.0 * kt * compressibilityFactor * PRESFAC / vol / DIM)
+                                  / (DIM - 1) * gauss);
             }
             {
                 const real compressibilityFactor = ir->compress[ZZ][ZZ] * dt / ir->tau_p;
-                mu[ZZ][ZZ] = exp(-compressibilityFactor * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
-                                 + sqrt(2.0 * kt * compressibilityFactor * PRESFAC / vol / DIM) * gauss2);
+                mu[ZZ][ZZ]                       = std::exp(
+                        -compressibilityFactor * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
+                        + std::sqrt(2.0 * kt * compressibilityFactor * PRESFAC / vol / DIM) * gauss2);
             }
             break;
         case epctSURFACETENSION:
@@ -1016,15 +1019,17 @@ void crescale_pcoupl(FILE*             fplog,
             {
                 const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
                 /* Notice: we here use ref_p[ZZ][ZZ] as isotropic pressure and ir->ref_p[d][d] as surface tension */
-                mu[d][d] = exp(
+                mu[d][d] = std::exp(
                         -compressibilityFactor
                                 * (ir->ref_p[ZZ][ZZ] - ir->ref_p[d][d] / box[ZZ][ZZ] - xy_pressure) / DIM
-                        + sqrt(4.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol) / (DIM - 1) * gauss);
+                        + std::sqrt(4.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol)
+                                  / (DIM - 1) * gauss);
             }
             {
                 const real compressibilityFactor = ir->compress[ZZ][ZZ] * dt / ir->tau_p;
-                mu[ZZ][ZZ] = exp(-compressibilityFactor * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
-                                 + sqrt(2.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol) * gauss2);
+                mu[ZZ][ZZ]                       = std::exp(
+                        -compressibilityFactor * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
+                        + std::sqrt(2.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol) * gauss2);
             }
             break;
         default:
