@@ -948,7 +948,6 @@ void crescale_pcoupl(FILE*             fplog,
                      matrix            mu,
                      double*           baros_integral)
 {
-    int  d;
     real scalar_pressure, xy_pressure;
     char buf[STRLEN];
 
@@ -957,7 +956,7 @@ void crescale_pcoupl(FILE*             fplog,
      */
     scalar_pressure = 0;
     xy_pressure     = 0;
-    for (d = 0; d < DIM; d++)
+    for (int d = 0; d < DIM; d++)
     {
         scalar_pressure += pres[d][d] / DIM;
         if (d != ZZ)
@@ -977,7 +976,7 @@ void crescale_pcoupl(FILE*             fplog,
     gmx::NormalDistribution<real> normalDist;
     rng.restart(step, 0);
     real vol = 1.0;
-    for (d = 0; d < DIM; d++)
+    for (int d = 0; d < DIM; d++)
     {
         vol *= box[d][d];
     }
@@ -994,7 +993,7 @@ void crescale_pcoupl(FILE*             fplog,
     {
         case epctISOTROPIC:
             gauss = normalDist(rng);
-            for (d = 0; d < DIM; d++)
+            for (int d = 0; d < DIM; d++)
             {
                 mu[d][d] = exp(-factor(d, d) * (ir->ref_p[d][d] - scalar_pressure) / DIM
                                + sqrt(2.0 * kt * factor(d, d) * PRESFAC / vol) * gauss / DIM);
@@ -1003,19 +1002,19 @@ void crescale_pcoupl(FILE*             fplog,
         case epctSEMIISOTROPIC:
             gauss  = normalDist(rng);
             gauss2 = normalDist(rng);
-            for (d = 0; d < ZZ; d++)
+            for (int d = 0; d < ZZ; d++)
             {
                 mu[d][d] = exp(-factor(d, d) * (ir->ref_p[d][d] - xy_pressure) / DIM
                                + sqrt((DIM - 1) * 2.0 * kt * factor(d, d) * PRESFAC / vol / DIM)
                                          / (DIM - 1) * gauss);
             }
             mu[ZZ][ZZ] = exp(-factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
-                             + sqrt(2.0 * kt * factor(d, d) * PRESFAC / vol / DIM) * gauss2);
+                             + sqrt(2.0 * kt * factor(ZZ, ZZ) * PRESFAC / vol / DIM) * gauss2);
             break;
         case epctSURFACETENSION:
             gauss  = normalDist(rng);
             gauss2 = normalDist(rng);
-            for (d = 0; d < ZZ; d++)
+            for (int d = 0; d < ZZ; d++)
             {
                 /* Notice: we here use ref_p[ZZ][ZZ] as isotropic pressure and ir->ref_p[d][d] as surface tension */
                 mu[d][d] = exp(
@@ -1023,7 +1022,7 @@ void crescale_pcoupl(FILE*             fplog,
                         + sqrt(4.0 / 3.0 * kt * factor(d, d) * PRESFAC / vol) / (DIM - 1) * gauss);
             }
             mu[ZZ][ZZ] = exp(-factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
-                             + sqrt(2.0 / 3.0 * kt * factor(d, d) * PRESFAC / vol) * gauss2);
+                             + sqrt(2.0 / 3.0 * kt * factor(ZZ, ZZ) * PRESFAC / vol) * gauss2);
             break;
         default:
             gmx_fatal(FARGS, "C-rescale pressure coupling type %s not supported yet\n",
