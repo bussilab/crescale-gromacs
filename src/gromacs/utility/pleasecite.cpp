@@ -294,7 +294,8 @@ void please_cite(FILE* fp, const char* key)
           "Accelerated weight histogram method for exploring free energy landscapes",
           "J. Chem. Phys.", 141, 2014, "044110" },
         { "Bernetti2020", "M. Bernetti, G. Bussi",
-          "Pressure control using stochastic cell rescaling", "J. Chem. Phys.", 153, 2020, "114107" },
+          "Pressure control using stochastic cell rescaling", "J. Chem. Phys.", 153, 2020,
+          "114107" },
     };
 #define NSTR static_cast<int>(asize(citedb))
 
