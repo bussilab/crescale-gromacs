@@ -963,12 +963,6 @@ void crescale_pcoupl(FILE*             fplog,
             xy_pressure += pres[d][d] / (DIM - 1);
         }
     }
-    /* Pressure is now in bar, everywhere. */
-#define factor(d, m) (ir->compress[d][m] * dt / ir->tau_p)
-
-    /* mu has been changed from pow(1+...,1/3) to 1+.../3, since this is
-     * necessary for triclinic scaling
-     */
     clear_mat(mu);
 
     gmx::ThreeFry2x64<64>         rng(ir->ld_seed, gmx::RandomDomain::Barostat);
@@ -994,8 +988,9 @@ void crescale_pcoupl(FILE*             fplog,
             gauss = normalDist(rng);
             for (int d = 0; d < DIM; d++)
             {
-                mu[d][d] = exp(-factor(d, d) * (ir->ref_p[d][d] - scalar_pressure) / DIM
-                               + sqrt(2.0 * kt * factor(d, d) * PRESFAC / vol) * gauss / DIM);
+                const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
+                mu[d][d] = exp(-compressibilityFactor * (ir->ref_p[d][d] - scalar_pressure) / DIM
+                               + sqrt(2.0 * kt * compressibilityFactor * PRESFAC / vol) * gauss / DIM);
             }
             break;
         case epctSEMIISOTROPIC:
@@ -1003,25 +998,33 @@ void crescale_pcoupl(FILE*             fplog,
             gauss2 = normalDist(rng);
             for (int d = 0; d < ZZ; d++)
             {
-                mu[d][d] = exp(-factor(d, d) * (ir->ref_p[d][d] - xy_pressure) / DIM
-                               + sqrt((DIM - 1) * 2.0 * kt * factor(d, d) * PRESFAC / vol / DIM)
+                const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
+                mu[d][d] = exp(-compressibilityFactor * (ir->ref_p[d][d] - xy_pressure) / DIM
+                               + sqrt((DIM - 1) * 2.0 * kt * compressibilityFactor * PRESFAC / vol / DIM)
                                          / (DIM - 1) * gauss);
             }
-            mu[ZZ][ZZ] = exp(-factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
-                             + sqrt(2.0 * kt * factor(ZZ, ZZ) * PRESFAC / vol / DIM) * gauss2);
+            {
+                const real compressibilityFactor = ir->compress[ZZ][ZZ] * dt / ir->tau_p;
+                mu[ZZ][ZZ] = exp(-compressibilityFactor * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
+                                 + sqrt(2.0 * kt * compressibilityFactor * PRESFAC / vol / DIM) * gauss2);
+            }
             break;
         case epctSURFACETENSION:
             gauss  = normalDist(rng);
             gauss2 = normalDist(rng);
             for (int d = 0; d < ZZ; d++)
             {
+                const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
                 /* Notice: we here use ref_p[ZZ][ZZ] as isotropic pressure and ir->ref_p[d][d] as surface tension */
                 mu[d][d] = exp(
-                        -factor(d, d) * (ir->ref_p[ZZ][ZZ] - ir->ref_p[d][d] / box[ZZ][ZZ] - xy_pressure) / DIM
-                        + sqrt(4.0 / 3.0 * kt * factor(d, d) * PRESFAC / vol) / (DIM - 1) * gauss);
+                        -compressibilityFactor * (ir->ref_p[ZZ][ZZ] - ir->ref_p[d][d] / box[ZZ][ZZ] - xy_pressure) / DIM
+                        + sqrt(4.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol) / (DIM - 1) * gauss);
             }
-            mu[ZZ][ZZ] = exp(-factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
-                             + sqrt(2.0 / 3.0 * kt * factor(ZZ, ZZ) * PRESFAC / vol) * gauss2);
+            {
+                const real compressibilityFactor = ir->compress[ZZ][ZZ] * dt / ir->tau_p;
+                mu[ZZ][ZZ] = exp(-compressibilityFactor * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM
+                                 + sqrt(2.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol) * gauss2);
+            }
             break;
         default:
             gmx_fatal(FARGS, "C-rescale pressure coupling type %s not supported yet\n",
