@@ -811,7 +811,6 @@ void berendsen_pcoupl(FILE*             fplog,
                       matrix            mu,
                       double*           baros_integral)
 {
-    int  d, n;
     real scalar_pressure, xy_pressure, p_corr_z;
     char buf[STRLEN];
 
@@ -820,7 +819,7 @@ void berendsen_pcoupl(FILE*             fplog,
      */
     scalar_pressure = 0;
     xy_pressure     = 0;
-    for (d = 0; d < DIM; d++)
+    for (int d = 0; d < DIM; d++)
     {
         scalar_pressure += pres[d][d] / DIM;
         if (d != ZZ)
@@ -838,22 +837,22 @@ void berendsen_pcoupl(FILE*             fplog,
     switch (ir->epct)
     {
         case epctISOTROPIC:
-            for (d = 0; d < DIM; d++)
+            for (int d = 0; d < DIM; d++)
             {
                 mu[d][d] = 1.0 - factor(d, d) * (ir->ref_p[d][d] - scalar_pressure) / DIM;
             }
             break;
         case epctSEMIISOTROPIC:
-            for (d = 0; d < ZZ; d++)
+            for (int d = 0; d < ZZ; d++)
             {
                 mu[d][d] = 1.0 - factor(d, d) * (ir->ref_p[d][d] - xy_pressure) / DIM;
             }
             mu[ZZ][ZZ] = 1.0 - factor(ZZ, ZZ) * (ir->ref_p[ZZ][ZZ] - pres[ZZ][ZZ]) / DIM;
             break;
         case epctANISOTROPIC:
-            for (d = 0; d < DIM; d++)
+            for (int d = 0; d < DIM; d++)
             {
-                for (n = 0; n < DIM; n++)
+                for (int n = 0; n < DIM; n++)
                 {
                     mu[d][n] = (d == n ? 1.0 : 0.0) - factor(d, n) * (ir->ref_p[d][n] - pres[d][n]) / DIM;
                 }
@@ -873,7 +872,7 @@ void berendsen_pcoupl(FILE*             fplog,
                 p_corr_z = 0;
             }
             mu[ZZ][ZZ] = 1.0 - ir->compress[ZZ][ZZ] * p_corr_z;
-            for (d = 0; d < DIM - 1; d++)
+            for (int d = 0; d < DIM - 1; d++)
             {
                 mu[d][d] = 1.0
                            + factor(d, d)
