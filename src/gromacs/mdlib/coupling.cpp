@@ -1017,7 +1017,8 @@ void crescale_pcoupl(FILE*             fplog,
                 const real compressibilityFactor = ir->compress[d][d] * dt / ir->tau_p;
                 /* Notice: we here use ref_p[ZZ][ZZ] as isotropic pressure and ir->ref_p[d][d] as surface tension */
                 mu[d][d] = exp(
-                        -compressibilityFactor * (ir->ref_p[ZZ][ZZ] - ir->ref_p[d][d] / box[ZZ][ZZ] - xy_pressure) / DIM
+                        -compressibilityFactor
+                                * (ir->ref_p[ZZ][ZZ] - ir->ref_p[d][d] / box[ZZ][ZZ] - xy_pressure) / DIM
                         + sqrt(4.0 / 3.0 * kt * compressibilityFactor * PRESFAC / vol) / (DIM - 1) * gauss);
             }
             {
