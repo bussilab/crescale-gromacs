@@ -1070,6 +1070,7 @@ void crescale_pcoupl(FILE*             fplog,
     if (mu[XX][XX] < 0.99 || mu[XX][XX] > 1.01 || mu[YY][YY] < 0.99 || mu[YY][YY] > 1.01
         || mu[ZZ][ZZ] < 0.99 || mu[ZZ][ZZ] > 1.01)
     {
+        char buf[STRLEN];
         char buf2[22];
         sprintf(buf,
                 "\nStep %s  Warning: pressure scaling more than 1%%, "
