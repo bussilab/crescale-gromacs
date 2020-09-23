@@ -119,7 +119,7 @@ __launch_bounds__(c_maxThreadsPerBlock) __global__
         v.y = scalingMatrix.yy * v.y + scalingMatrix.zy * v.z;
         v.z = scalingMatrix.zz * v.z;
 
-        gm_x[threadIndex] = v;
+        gm_v[threadIndex] = v;
     }
 }
 void UpdateConstrainGpu::Impl::integrate(GpuEventSynchronizer*             fReadyOnDevice,
