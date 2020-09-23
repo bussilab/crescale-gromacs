@@ -947,14 +947,11 @@ void crescale_pcoupl(FILE*             fplog,
                      matrix            mu,
                      double*           baros_integral)
 {
-    real scalar_pressure, xy_pressure;
-    char buf[STRLEN];
-
     /*
      *  Calculate the scaling matrix mu
      */
-    scalar_pressure = 0;
-    xy_pressure     = 0;
+    real scalar_pressure = 0;
+    real xy_pressure     = 0;
     for (int d = 0; d < DIM; d++)
     {
         scalar_pressure += pres[d][d] / DIM;
