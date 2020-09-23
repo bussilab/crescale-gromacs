@@ -1097,7 +1097,6 @@ void crescale_pscale(const t_inputrec*    ir,
                      const bool           scaleCoordinates)
 {
     ivec* nFreeze = ir->opts.nFreeze;
-    int   d;
     int nthreads gmx_unused;
     matrix       inv_mu;
 
