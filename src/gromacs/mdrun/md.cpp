@@ -1458,13 +1458,14 @@ void gmx::LegacySimulator::do_md()
 
         const bool doBerendsenPressureCoupling =
                 (inputrec->epc == epcBERENDSEN && do_per_step(step, inputrec->nstpcouple));
-        const bool doCRESCALEPressureCoupling =
+	const bool doCRescalePressureCoupling =
                 (inputrec->epc == epcCRESCALE && do_per_step(step, inputrec->nstpcouple));
         if (useGpuForUpdate
-            && (doBerendsenPressureCoupling || doCRESCALEPressureCoupling || doParrinelloRahman))
+            && (doBerendsenPressureCoupling || doCRescalePressureCoupling || doParrinelloRahman))
+        {
         {
             integrator->scaleCoordinates(pressureCouplingMu);
-            if (doCRESCALEPressureCoupling)
+            if (doCRescalePressureCoupling)
             {
                 matrix pressureCouplingInvMu;
                 gmx::invertBoxMatrix(pressureCouplingMu, pressureCouplingInvMu);
