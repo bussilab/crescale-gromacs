@@ -1144,7 +1144,7 @@ void crescale_pscale(const t_inputrec*    ir,
         }
     }
     /* compute final boxlengths */
-    for (d = 0; d < DIM; d++)
+    for (int d = 0; d < DIM; d++)
     {
         box[d][XX] = mu[XX][XX] * box[d][XX] + mu[YY][XX] * box[d][YY] + mu[ZZ][XX] * box[d][ZZ];
         box[d][YY] = mu[YY][YY] * box[d][YY] + mu[ZZ][YY] * box[d][ZZ];
