@@ -975,8 +975,7 @@ void crescale_pcoupl(FILE*             fplog,
     }
     real gauss;
     real gauss2;
-    real kt;
-    kt = ir->opts.ref_t[0] * BOLTZ;
+    real kt = ir->opts.ref_t[0] * BOLTZ;
     if (kt < 0.0)
     {
         kt = 0.0;
