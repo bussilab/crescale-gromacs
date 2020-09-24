@@ -105,23 +105,6 @@ __launch_bounds__(c_maxThreadsPerBlock) __global__
     }
 }
 
-__launch_bounds__(c_maxThreadsPerBlock) __global__
-        static void scaleVelocities_kernel(const int numAtoms,
-                                           float3* __restrict__ gm_v,
-                                           const ScalingMatrix scalingMatrix)
-{
-    int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex < numAtoms)
-    {
-        float3 v = gm_v[threadIndex];
-
-        v.x = scalingMatrix.xx * v.x + scalingMatrix.yx * v.y + scalingMatrix.zx * v.z;
-        v.y = scalingMatrix.yy * v.y + scalingMatrix.zy * v.z;
-        v.z = scalingMatrix.zz * v.z;
-
-        gm_v[threadIndex] = v;
-    }
-}
 void UpdateConstrainGpu::Impl::integrate(GpuEventSynchronizer*             fReadyOnDevice,
                                          const real                        dt,
                                          const bool                        updateVelocities,
@@ -195,9 +178,9 @@ void UpdateConstrainGpu::Impl::scaleVelocities(const matrix scalingMatrix)
     mu.zy = scalingMatrix[ZZ][YY];
 
     const auto kernelArgs = prepareGpuKernelArguments(
-            scaleVelocities_kernel, coordinateScalingKernelLaunchConfig_, &numAtoms_, &d_v_, &mu);
-    launchGpuKernel(scaleVelocities_kernel, coordinateScalingKernelLaunchConfig_, deviceStream_,
-                    nullptr, "scaleVelocities_kernel", kernelArgs);
+            scaleCoordinates_kernel, coordinateScalingKernelLaunchConfig_, &numAtoms_, &d_v_, &mu);
+    launchGpuKernel(scaleCoordinates_kernel, coordinateScalingKernelLaunchConfig_, deviceStream_,
+                    nullptr, "scaleCoordinates_kernel", kernelArgs);
     // TODO: Although this only happens on the pressure coupling steps, this synchronization
     //       can affect the perfornamce if nstpcouple is small.
     deviceStream_.synchronize();
