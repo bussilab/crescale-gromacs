@@ -1458,7 +1458,7 @@ void gmx::LegacySimulator::do_md()
 
         const bool doBerendsenPressureCoupling =
                 (inputrec->epc == epcBERENDSEN && do_per_step(step, inputrec->nstpcouple));
-	const bool doCRescalePressureCoupling =
+        const bool doCRescalePressureCoupling =
                 (inputrec->epc == epcCRESCALE && do_per_step(step, inputrec->nstpcouple));
         if (useGpuForUpdate
             && (doBerendsenPressureCoupling || doCRescalePressureCoupling || doParrinelloRahman))
