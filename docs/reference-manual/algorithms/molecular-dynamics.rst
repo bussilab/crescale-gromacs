@@ -1285,7 +1285,8 @@ Pa\ :math:`^{-1} = 4.6 \times 10^{-5}` bar\ :math:`^{-1}`, which is
 other liquids have similar values.
 
 Another difference with respect to the Berendsen algorithm is that
-velocities are scaled with an inverse factor.
+velocities are scaled with a factor that is the reciprocal of the
+scaling factor for positions.
 
 A semi-isotropic implementation is also provided. By defining the variables
 :math:`\epsilon_{xy}=\log(A/A_0)` and :math:`\epsilon_z=\log(L/L_0)`,
